@@ -167,22 +167,28 @@ document.getElementById("confirmModal").addEventListener("click", (e) => {
 
 function openImageLightbox() {
   const img = document.getElementById("layoutImg");
-  if (!img || img.closest(".layout-image-wrap").classList.contains("layout-image-missing")) return;
   const overlay = document.getElementById("lightboxOverlay");
   const lbImg = document.getElementById("lightboxImg");
+  if (!img || !overlay || !lbImg) return;
+  if (img.closest(".layout-image-wrap").classList.contains("layout-image-missing")) return;
   lbImg.src = img.src;
   lbImg.alt = img.alt;
   overlay.classList.add("show");
 }
 
 function closeImageLightbox() {
-  document.getElementById("lightboxOverlay").classList.remove("show");
+  const overlay = document.getElementById("lightboxOverlay");
+  if (overlay) overlay.classList.remove("show");
 }
 
-document.getElementById("lightboxClose").addEventListener("click", closeImageLightbox);
-document.getElementById("lightboxOverlay").addEventListener("click", (e) => {
-  if (e.target.id === "lightboxOverlay") closeImageLightbox();
-});
+const lightboxCloseBtn = document.getElementById("lightboxClose");
+const lightboxOverlayEl = document.getElementById("lightboxOverlay");
+if (lightboxCloseBtn) lightboxCloseBtn.addEventListener("click", closeImageLightbox);
+if (lightboxOverlayEl) {
+  lightboxOverlayEl.addEventListener("click", (e) => {
+    if (e.target.id === "lightboxOverlay") closeImageLightbox();
+  });
+}
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeImageLightbox();
