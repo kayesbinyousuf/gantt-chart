@@ -163,6 +163,33 @@ document.getElementById("confirmModal").addEventListener("click", (e) => {
   if (e.target.id === "confirmModal") closeConfirm();
 });
 
+/* ---------------- Image lightbox ---------------- */
+
+function openImageLightbox() {
+  const img = document.getElementById("layoutImg");
+  if (!img || img.closest(".layout-image-wrap").classList.contains("layout-image-missing")) return;
+  const overlay = document.getElementById("lightboxOverlay");
+  const lbImg = document.getElementById("lightboxImg");
+  lbImg.src = img.src;
+  lbImg.alt = img.alt;
+  overlay.classList.add("show");
+}
+
+function closeImageLightbox() {
+  document.getElementById("lightboxOverlay").classList.remove("show");
+}
+
+document.getElementById("lightboxClose").addEventListener("click", closeImageLightbox);
+document.getElementById("lightboxOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "lightboxOverlay") closeImageLightbox();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeImageLightbox();
+    closeConfirm();
+  }
+});
+
 /* ---------------- Render: Sidebar ---------------- */
 
 function renderSidebar() {
@@ -409,6 +436,33 @@ function renderLegend() {
   `;
 }
 
+/* ---------------- Render: Layout Image ---------------- */
+
+function renderLayoutImage(project) {
+  // Image file is expected to sit in the same repo/folder as index.html,
+  // named exactly after the project, e.g. "Chanachur Line.png"
+  const fileName = project.name + ".png";
+  const src = encodeURIComponent(fileName).replace(/%20/g, "%20");
+
+  return `
+    <div class="layout-image-wrap">
+      <img
+        src="${src}"
+        alt="${escapeHtml(project.name)} layout"
+        class="layout-image"
+        id="layoutImg"
+        onerror="this.closest('.layout-image-wrap').classList.add('layout-image-missing')"
+      >
+      <div class="layout-image-fallback">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <div class="layout-image-fallback-title">Layout image not found</div>
+        <div class="layout-image-fallback-sub">Add a file named <code>${escapeHtml(fileName)}</code> in the same folder as index.html in the GitHub repo.</div>
+      </div>
+    </div>
+  `;
+}
+
+
 /* ---------------- Filtering & Sorting ---------------- */
 
 function getFilterState(projectId) {
@@ -619,6 +673,15 @@ function render() {
 
       <div class="panel">
         <div class="panel-head">
+          <div class="panel-title">Layout <span class="tag">Reference Image</span></div>
+        </div>
+        <div class="panel-body">
+          ${renderLayoutImage(project)}
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
           <div class="panel-title">Timeline <span class="tag">Gantt</span></div>
           ${renderLegend()}
         </div>
@@ -712,6 +775,9 @@ function bindEvents() {
 
   // Export
   bindIfExists("exportCsvBtn", "click", exportCsv);
+
+  // Layout image zoom
+  bindIfExists("layoutImg", "click", openImageLightbox);
 
   // Table cell edits
   document.querySelectorAll(".data-table tbody tr").forEach(row => {
