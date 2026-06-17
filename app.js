@@ -356,7 +356,7 @@ function renderGantt(project, filteredTasks) {
     const progress = Math.min(100, Math.max(0, Number(t.progress || 0)));
     return `
       <div class="gantt-bar status-${t.status} ${tinyClass}"
-           style="left:${left}px; width:${width}px; top:9px;"
+           style="left:${left}px; width:${width}px; top:${top}px;"
            title="${escapeHtml(t.name)} • ${fmtDateShort(t.start)} – ${fmtDateShort(t.end)} • ${progress}%">
         <div class="bar-progress" style="width:${progress}%"></div>
         <span class="bar-label">${escapeHtml(t.name)}</span>
