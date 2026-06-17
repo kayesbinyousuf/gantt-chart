@@ -15,21 +15,13 @@ let FILTERS = {};          // per-project filter state, keyed by project id
 let saveTimer = null;
 let pendingDeleteAction = null;
 
+/* ---- Firebase shared sync ---- */
+let firebaseReady = false;        // true once the first remote snapshot has been received
+let lastWrittenJson = null;       // last JSON string we pushed, to ignore the echo of our own write
+
 /* ---------------- Init / persistence ---------------- */
 
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.projects && parsed.projects.length) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.warn("Could not parse saved state, falling back to seed data.", e);
-  }
-  // Build fresh state from seed
+function buildSeedState() {
   return {
     projects: SEED_PROJECTS.map(p => ({
       id: p.id,
@@ -43,16 +35,52 @@ function loadState() {
   };
 }
 
+// Loads from localStorage first (instant, for first paint) — the Firebase
+// listener set up in initFirebaseSync() will overwrite this with the shared
+// copy as soon as it arrives, so everyone ends up seeing the same data.
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.projects && parsed.projects.length) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn("Could not parse saved state, falling back to seed data.", e);
+  }
+  return buildSeedState();
+}
+
+// Writes the current state to localStorage immediately (fast local cache)
+// and pushes it to Firebase so every other visitor sees the same data.
 function persist(showToast) {
   STATE.lastSaved = new Date().toISOString();
   STATE.activeProject = ACTIVE_PROJECT;
+
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
-    flashSaveIndicator();
-    if (showToast) showToastMsg("Changes saved");
   } catch (e) {
-    showToastMsg("Could not save — storage may be full");
     console.error(e);
+  }
+
+  if (typeof FIREBASE_STATE_REF !== "undefined") {
+    const json = JSON.stringify(STATE);
+    lastWrittenJson = json;
+    FIREBASE_STATE_REF.set(STATE)
+      .then(() => {
+        flashSaveIndicator();
+        if (showToast) showToastMsg("Changes saved — visible to everyone");
+      })
+      .catch((e) => {
+        console.error(e);
+        showToastMsg("Could not sync — check your connection");
+      });
+  } else {
+    // Firebase not available (e.g. opened as a local file) — local-only save.
+    flashSaveIndicator();
+    if (showToast) showToastMsg("Changes saved (local only)");
   }
 }
 
@@ -62,13 +90,76 @@ function scheduleSave(showToast) {
 }
 
 function resetAllData() {
-  localStorage.removeItem(STORAGE_KEY);
-  STATE = loadState();
+  STATE = buildSeedState();
   ACTIVE_PROJECT = STATE.activeProject;
   FILTERS = {};
   SORT_COL = null;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch (e) {}
+  if (typeof FIREBASE_STATE_REF !== "undefined") {
+    lastWrittenJson = JSON.stringify(STATE);
+    FIREBASE_STATE_REF.set(STATE).catch((e) => console.error(e));
+  }
   render();
-  showToastMsg("Reset to default plan");
+  showToastMsg("Reset to default plan for everyone");
+}
+
+/* ---------------- Firebase realtime sync ---------------- */
+
+// Firebase Realtime Database silently converts JS arrays into objects keyed
+// "0","1","2"... when stored, so we convert them back to real arrays after
+// reading, otherwise .map()/.filter()/.find() calls elsewhere would break.
+function normalizeFirebaseState(raw) {
+  if (!raw) return raw;
+  const toArray = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+  const projects = toArray(raw.projects).map(p => ({
+    ...p,
+    tasks: toArray(p.tasks)
+  }));
+  return { ...raw, projects };
+}
+
+// Subscribes to the shared database node. Whenever ANY visitor saves a
+// change, every other open tab/browser receives this callback and updates
+// its view automatically — no refresh needed.
+function initFirebaseSync() {
+  if (typeof FIREBASE_STATE_REF === "undefined") return;
+
+  FIREBASE_STATE_REF.on("value", (snapshot) => {
+    const remote = normalizeFirebaseState(snapshot.val());
+
+    if (!remote || !remote.projects || !remote.projects.length) {
+      // Nothing in the shared DB yet (first run ever) — seed it with
+      // whatever we currently have so it becomes the shared baseline.
+      if (!firebaseReady) {
+        firebaseReady = true;
+        FIREBASE_STATE_REF.set(STATE).catch((e) => console.error(e));
+      }
+      return;
+    }
+
+    const incomingJson = JSON.stringify(remote);
+
+    // Ignore the echo of a write we just made ourselves.
+    if (incomingJson === lastWrittenJson) {
+      firebaseReady = true;
+      return;
+    }
+
+    STATE = remote;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch (e) {}
+
+    if (!ACTIVE_PROJECT || !getProject(ACTIVE_PROJECT)) {
+      ACTIVE_PROJECT = STATE.activeProject || STATE.projects[0].id;
+    }
+
+    const wasReady = firebaseReady;
+    firebaseReady = true;
+    render();
+    if (wasReady) showToastMsg("Updated by another user");
+  }, (error) => {
+    console.error("Firebase sync error:", error);
+    showToastMsg("Live sync unavailable — check Firebase rules/connection");
+  });
 }
 
 /* ---------------- Helpers ---------------- */
@@ -974,6 +1065,7 @@ function init() {
   ACTIVE_PROJECT = STATE.activeProject || STATE.projects[0].id;
   if (!getProject(ACTIVE_PROJECT)) ACTIVE_PROJECT = STATE.projects[0].id;
   render();
+  initFirebaseSync();
 }
 
 document.addEventListener("DOMContentLoaded", init);
