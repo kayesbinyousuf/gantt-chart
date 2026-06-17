@@ -452,6 +452,113 @@ select:focus, .text-input:focus, input:focus, textarea:focus{
   color:var(--ink-faint);
 }
 
+/* ===================== LAYOUT IMAGE ===================== */
+.layout-image-wrap{
+  position:relative;
+  background:var(--bg-sunk);
+  min-height:160px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+.layout-image{
+  max-width:100%;
+  max-height:560px;
+  display:block;
+  border-radius:6px;
+  box-shadow:var(--shadow-sm);
+  cursor:zoom-in;
+  transition:transform 0.15s, box-shadow 0.15s;
+}
+.layout-image:hover{
+  transform:scale(1.004);
+  box-shadow:var(--shadow-md);
+}
+.layout-image-fallback{
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  color:var(--ink-faint);
+  padding:30px 20px;
+  gap:6px;
+}
+.layout-image-fallback svg{
+  width:34px;height:34px;
+  margin-bottom:6px;
+  opacity:0.7;
+}
+.layout-image-fallback-title{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:13.5px;
+  color:var(--ink-soft);
+}
+.layout-image-fallback-sub{
+  font-size:12px;
+  max-width:420px;
+  line-height:1.5;
+}
+.layout-image-fallback-sub code{
+  font-family:var(--font-mono);
+  background:var(--bg-panel);
+  border:1px solid var(--line);
+  padding:1px 6px;
+  border-radius:4px;
+  color:var(--ink);
+}
+.layout-image-wrap.layout-image-missing .layout-image{
+  display:none;
+}
+.layout-image-wrap.layout-image-missing .layout-image-fallback{
+  display:flex;
+}
+
+/* ===================== LIGHTBOX ===================== */
+.lightbox-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(20,24,28,0.86);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:300;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.2s;
+  padding:40px;
+}
+.lightbox-overlay.show{
+  opacity:1;
+  pointer-events:all;
+}
+.lightbox-img{
+  max-width:100%;
+  max-height:100%;
+  border-radius:8px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.4);
+}
+.lightbox-close{
+  position:absolute;
+  top:22px;
+  right:28px;
+  background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.25);
+  color:#fff;
+  width:38px;height:38px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:background 0.15s;
+}
+.lightbox-close:hover{
+  background:rgba(255,255,255,0.2);
+}
+.lightbox-close svg{width:18px;height:18px;}
+
 /* ===================== GANTT ===================== */
 .gantt-scroll{
   overflow-x:auto;
@@ -884,6 +991,13 @@ select.cell-input{
       <button class="btn danger primary" id="confirmOk">Delete</button>
     </div>
   </div>
+</div>
+
+<div class="lightbox-overlay" id="lightboxOverlay">
+  <button class="lightbox-close" id="lightboxClose" aria-label="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <img id="lightboxImg" class="lightbox-img" src="" alt="">
 </div>
 
 <script src="data.js"></script>
